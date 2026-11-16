@@ -1,13 +1,14 @@
 using System;
 using System.CommandLine;
 using System.IO;
+using System.Threading.Tasks;
 using LargeFileSort.Generator.Models;
 
 namespace LargeFileSort.Generator.Configuration;
 
 internal static class CommandLineParser
 {
-    public static RootCommand CreateCommand(Func<CommandLineOptions, int> action)
+    public static RootCommand CreateCommand(Func<CommandLineOptions, Task<int>> action)
     {
         var dictionary = new Option<string>("--dictionary")
         {
@@ -42,7 +43,7 @@ internal static class CommandLineParser
         command.Options.Add(output);
         command.Options.Add(maxBytes);
         command.Options.Add(seed);
-        command.SetAction(result =>
+        command.SetAction(async result =>
         {
             var options = new CommandLineOptions(
                 result.GetRequiredValue(dictionary),
@@ -50,7 +51,7 @@ internal static class CommandLineParser
                 result.GetValue(maxBytes),
                 result.GetValue(seed));
 
-            return action(ValidatePaths(options));
+            return await action(ValidatePaths(options)).ConfigureAwait(false);
         });
 
         return command;

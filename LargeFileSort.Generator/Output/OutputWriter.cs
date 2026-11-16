@@ -84,12 +84,27 @@ internal sealed class OutputWriter : IOutputWriter
         }
     }
 
-    public async ValueTask WriteBatchAsync(ReadOnlyMemory<char> characters)
+    public async ValueTask WriteLineAsync(ReadOnlyMemory<char> prefix, ReadOnlyMemory<char> phrase)
     {
         ThrowIfUnavailable();
         try
         {
-            await _writer.WriteAsync(characters).ConfigureAwait(false);
+            await _writer.WriteAsync(prefix).ConfigureAwait(false);
+            await _writer.WriteLineAsync(phrase).ConfigureAwait(false);
+        }
+        catch
+        {
+            _failed = true;
+            throw;
+        }
+    }
+
+    public async ValueTask FlushAsync()
+    {
+        ThrowIfUnavailable();
+        try
+        {
+            await _writer.FlushAsync().ConfigureAwait(false);
         }
         catch
         {
