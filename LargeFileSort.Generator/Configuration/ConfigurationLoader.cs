@@ -1,4 +1,6 @@
+using System;
 using System.Globalization;
+using System.Linq;
 using LargeFileSort.Generator.Models;
 using Microsoft.Extensions.Configuration;
 
@@ -13,14 +15,14 @@ internal static class ConfigurationLoader
 
     public static GeneratorConfiguration ReadGeneratorConfiguration(IConfiguration configuration)
     {
-        string? dictionaryLimit = configuration[nameof(GeneratorConfiguration.MaxDictionaryBytes)];
+        string dictionaryLimit = configuration[nameof(GeneratorConfiguration.MaxDictionaryBytes)];
         if (!long.TryParse(dictionaryLimit, NumberStyles.Integer, CultureInfo.InvariantCulture, out long maxDictionaryBytes)
             || maxDictionaryBytes <= 0)
         {
             throw new ArgumentException("appsettings.json: MaxDictionaryBytes must be a positive Int64 value in bytes.");
         }
 
-        string? bufferValue = configuration[nameof(GeneratorConfiguration.WriterBufferCharacters)];
+        string bufferValue = configuration[nameof(GeneratorConfiguration.WriterBufferCharacters)];
         int bufferCharacters = new GeneratorConfiguration(maxDictionaryBytes).WriterBufferCharacters;
         if (bufferValue is not null
             && (!int.TryParse(bufferValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out bufferCharacters)

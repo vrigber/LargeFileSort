@@ -1,4 +1,6 @@
+using System;
 using System.CommandLine;
+using System.IO;
 using LargeFileSort.Generator.Models;
 
 namespace LargeFileSort.Generator.Configuration;
@@ -9,12 +11,12 @@ internal static class CommandLineParser
     {
         var dictionary = new Option<string>("--dictionary")
         {
-            Description = "Dictionary file path, relative to the current working directory.",
+            Description = "Dictionary file path",
             Required = true
         };
         var output = new Option<string>("--output")
         {
-            Description = "New output file path, relative to the current working directory.",
+            Description = "New output file path",
             Required = true
         };
         var maxBytes = new Option<long>("--max-bytes")

@@ -1,5 +1,6 @@
 ﻿namespace LargeFileSort.Generator;
 
+using System;
 using System.CommandLine;
 using LargeFileSort.Generator.Configuration;
 using Microsoft.Extensions.Configuration;
@@ -9,9 +10,9 @@ internal class Program
 {
     static int Main(string[] args)
     {
-        IConfigurationRoot? configuration = null;
-        ILoggerFactory? loggerFactory = null;
-        ILogger<Program>? logger = null;
+        IConfigurationRoot configuration = null;
+        ILoggerFactory loggerFactory = null;
+        ILogger<Program> logger = null;
         bool outOfMemory = false;
         int exitCode = 1;
 
@@ -54,7 +55,7 @@ internal class Program
         return exitCode;
     }
 
-    private static bool ReportFailure(ILogger? logger, Exception exception)
+    private static bool ReportFailure(ILogger logger, Exception exception)
     {
         if (exception is OutOfMemoryException)
         {
@@ -86,7 +87,7 @@ internal class Program
         return false;
     }
 
-    private static void DisposeResource(IDisposable? resource, ref bool outOfMemory, ref int exitCode)
+    private static void DisposeResource(IDisposable resource, ref bool outOfMemory, ref int exitCode)
     {
         if (outOfMemory)
         {

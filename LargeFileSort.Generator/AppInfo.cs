@@ -1,6 +1,8 @@
+using System.IO;
+
 namespace LargeFileSort.Generator;
 
-public static class AppInfo
+internal static class AppInfo
 {
     public static string CurrentDirectory => Directory.GetCurrentDirectory();
 }

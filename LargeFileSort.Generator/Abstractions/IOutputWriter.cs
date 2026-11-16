@@ -1,3 +1,6 @@
+using System;
+using System.Threading.Tasks;
+
 namespace LargeFileSort.Generator.Abstractions;
 
 /// <summary>Writes character batches without adding separators or line endings.</summary>
