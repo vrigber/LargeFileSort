@@ -6,13 +6,13 @@ namespace LargeFileSort.Generator.Configuration;
 
 internal static class ConfigurationLoader
 {
-    public static GeneratorConfiguration Load()
-    {
-        var configuration = new ConfigurationBuilder()
+    public static IConfigurationRoot Load() =>
+        new ConfigurationBuilder()
             .AddJsonFile("appsettings.json")
             .Build();
-        using var configurationLifetime = configuration as IDisposable;
 
+    public static GeneratorConfiguration ReadGeneratorConfiguration(IConfiguration configuration)
+    {
         string? dictionaryLimit = configuration[nameof(GeneratorConfiguration.MaxDictionaryBytes)];
         if (!long.TryParse(dictionaryLimit, NumberStyles.Integer, CultureInfo.InvariantCulture, out long maxDictionaryBytes)
             || maxDictionaryBytes <= 0)
