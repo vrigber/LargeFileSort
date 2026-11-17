@@ -24,6 +24,12 @@ internal sealed class ChunkBuilder(
     private bool _endOfInput;
     private bool _failed;
 
+    public void Abort()
+    {
+        _pending = null;
+        _failed = true;
+    }
+
     public async ValueTask<ChunkReadResult> FillAsync(SortChunk chunk, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(chunk);

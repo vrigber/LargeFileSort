@@ -28,6 +28,8 @@ internal sealed class RunStore(
 
     public string DirectoryPath => _directory;
 
+    public void CaptureActualPeak() => _budget.CaptureActualPeak();
+
     public SegmentedRunWriter CreateWriter(long segmentTargetBytes)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(segmentTargetBytes);
