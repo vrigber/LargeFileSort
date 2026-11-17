@@ -63,13 +63,13 @@ internal sealed class Generator
                 break;
             }
 
-            await _writer.WriteLineAsync(prefix.AsMemory(0, prefixLength), phrase.AsMemory()).ConfigureAwait(false);
+            await _writer.WriteLineAsync(prefix.AsMemory(0, prefixLength), phrase.AsMemory());
             acceptedBytes += lineBytes;
             acceptedLines++;
 
             if (!seedReset && acceptedBytes >= resetThreshold)
             {
-                await _writer.FlushAsync().ConfigureAwait(false);
+                await _writer.FlushAsync();
                 phraseRandom = new Random(options.Seed);
                 seedReset = true;
                 _logger.LogDebug("Phrase seed reset after {LineCount} lines and {ByteCount} bytes.",
@@ -77,7 +77,7 @@ internal sealed class Generator
             }
             else if (seedReset && !repeatConfirmed)
             {
-                await _writer.FlushAsync().ConfigureAwait(false);
+                await _writer.FlushAsync();
                 repeatConfirmed = true;
             }
         }
@@ -92,7 +92,7 @@ internal sealed class Generator
             throw new InvalidOperationException("The requested size did not allow a complete line to be confirmed after the phrase seed reset.");
         }
 
-        await _writer.CompleteAsync().ConfigureAwait(false);
+        await _writer.CompleteAsync();
         _logger.LogInformation("Generation completed: {LineCount} lines, {ByteCount} bytes.", acceptedLines, acceptedBytes);
         return new GenerationResult(options.Seed, acceptedLines, acceptedBytes);
     }

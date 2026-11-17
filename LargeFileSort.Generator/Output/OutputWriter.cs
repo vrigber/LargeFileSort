@@ -89,8 +89,8 @@ internal sealed class OutputWriter : IOutputWriter
         ThrowIfUnavailable();
         try
         {
-            await _writer.WriteAsync(prefix).ConfigureAwait(false);
-            await _writer.WriteLineAsync(phrase).ConfigureAwait(false);
+            await _writer.WriteAsync(prefix);
+            await _writer.WriteLineAsync(phrase);
         }
         catch
         {
@@ -104,7 +104,7 @@ internal sealed class OutputWriter : IOutputWriter
         ThrowIfUnavailable();
         try
         {
-            await _writer.FlushAsync().ConfigureAwait(false);
+            await _writer.FlushAsync();
         }
         catch
         {
@@ -121,7 +121,7 @@ internal sealed class OutputWriter : IOutputWriter
         }
 
         ThrowIfUnavailable();
-        await CloseAsync(flush: true).ConfigureAwait(false);
+        await CloseAsync(flush: true);
         _completed = true;
     }
 
@@ -149,7 +149,7 @@ internal sealed class OutputWriter : IOutputWriter
         {
             if (flush)
             {
-                await _writer.DisposeAsync().ConfigureAwait(false);
+                await _writer.DisposeAsync();
             }
         }
         catch (OutOfMemoryException)
@@ -164,7 +164,7 @@ internal sealed class OutputWriter : IOutputWriter
 
         try
         {
-            await _stream.DisposeAsync().ConfigureAwait(false);
+            await _stream.DisposeAsync();
         }
         catch (OutOfMemoryException)
         {

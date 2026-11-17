@@ -37,7 +37,7 @@ internal static class CommandLineParser
                 result.GetRequiredValue(output),
                 result.GetRequiredValue(tempDirectory));
 
-            return await action(ValidatePaths(options)).ConfigureAwait(false);
+            return await action(ValidatePaths(options));
         });
 
         return command;

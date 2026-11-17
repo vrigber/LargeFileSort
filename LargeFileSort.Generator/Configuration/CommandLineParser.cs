@@ -51,7 +51,7 @@ internal static class CommandLineParser
                 result.GetValue(maxBytes),
                 result.GetValue(seed));
 
-            return await action(ValidatePaths(options)).ConfigureAwait(false);
+            return await action(ValidatePaths(options));
         });
 
         return command;

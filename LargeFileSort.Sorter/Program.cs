@@ -43,7 +43,7 @@ internal class Program
             exitCode = await command.Parse(args).InvokeAsync(new InvocationConfiguration
             {
                 EnableDefaultExceptionHandler = false
-            }).ConfigureAwait(false);
+            });
         }
         catch (Exception exception)
         {

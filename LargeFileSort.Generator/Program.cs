@@ -63,8 +63,8 @@ internal class Program
                     loggerFactory.CreateLogger<Generation.Generator>());
 
                 generationTime = Stopwatch.StartNew();
-                result = await generator.GenerateAsync().ConfigureAwait(false);
-                await writer.DisposeAsync().ConfigureAwait(false);
+                result = await generator.GenerateAsync();
+                await writer.DisposeAsync();
                 generationTime.Stop();
 
                 actualBytes = new FileInfo(outputPath).Length;
@@ -81,7 +81,7 @@ internal class Program
             exitCode = await command.Parse(args).InvokeAsync(new InvocationConfiguration
             {
                 EnableDefaultExceptionHandler = false
-            }).ConfigureAwait(false);
+            });
         }
         catch (Exception exception)
         {
@@ -94,7 +94,7 @@ internal class Program
             {
                 try
                 {
-                    await writer.DisposeAsync().ConfigureAwait(false);
+                    await writer.DisposeAsync();
                 }
                 catch (Exception exception)
                 {
