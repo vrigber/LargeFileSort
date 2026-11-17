@@ -10,6 +10,7 @@ internal sealed record SortPlan(
     long WriterMemoryBytes,
     long ReadScratchBudgetBytes,
     long RunCatalogBudgetBytes,
+    int MaxRunCount,
     long ControlBudgetBytes,
     long MergeMemoryBudgetBytes,
     int MaxMergeSources,
