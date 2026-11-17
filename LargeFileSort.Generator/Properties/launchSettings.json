@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "LargeFileSort.Generator": {
+      "commandName": "Project",
+      "commandLineArgs": "--dictionary data/phrases.txt --output output/sample.txt --max-bytes 1000000",
+      "workingDirectory": "C:\\Users\\Ivan\\source\\repos\\LargeFileSort",
+      "hotReloadEnabled": false
+    }
+  }
+}

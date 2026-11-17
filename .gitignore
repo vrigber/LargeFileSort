@@ -60,3 +60,4 @@ nunit-*.xml
 /tasks
 /AGENTS.md
 /output/
+/tools/PerfView.exe
