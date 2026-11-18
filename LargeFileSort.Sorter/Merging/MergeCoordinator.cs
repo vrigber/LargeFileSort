@@ -99,7 +99,7 @@ internal sealed class MergeCoordinator(
         List<SortedRun> runs, int start, int count, long memoryBytes, int maxCharacters, bool finalOutput, CancellationToken cancellationToken)
     {
         statistics.PeakEstimatedMemoryBytes = Math.Max(statistics.PeakEstimatedMemoryBytes,
-            checked(plan.MergePhaseReserveBytes + memoryBytes));
+            memoryBytes);
         ILineReader[] readers = new ILineReader[count];
         IOutputWriter writer = null;
         SortedRun result = null;

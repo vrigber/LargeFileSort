@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,7 +32,8 @@ internal sealed class ChunkPipeline(
         Stopwatch timer = Stopwatch.StartNew();
 
         void ObserveMemory(int chunks) => statistics.PeakEstimatedMemoryBytes = Math.Max(
-            statistics.PeakEstimatedMemoryBytes, plan.ChunkPhaseReserveBytes + chunks * plan.ChunkBudgetBytes);
+            statistics.PeakEstimatedMemoryBytes,
+            plan.ReaderMemoryBytes + plan.WorkerCount * plan.WriterMemoryBytes + chunks * plan.ChunkBudgetBytes);
 
         void Fail(Exception exception)
         {
@@ -55,12 +55,7 @@ internal sealed class ChunkPipeline(
 
         void AddRun(SortedRun run)
         {
-            if (run is null) return;
-            if (runs.Count == plan.MaxRunCount)
-                throw new IOException($"The run catalog limit of {plan.MaxRunCount} has been reached; increase the RAM budget or chunk size.");
-            if (runs.Count == runs.Capacity)
-                runs.Capacity = (int)Math.Min(plan.MaxRunCount, Math.Max(4L, 2L * runs.Capacity));
-            runs.Add(run);
+            if (run is not null) runs.Add(run);
         }
 
         async Task<SortedRun> ProcessAsync(SortChunk chunk, bool directOutput)

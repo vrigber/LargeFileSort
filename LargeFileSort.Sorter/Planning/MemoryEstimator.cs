@@ -7,9 +7,7 @@ internal static class MemoryEstimator
 {
     public const int ArrayHeaderBytes = 32;
     public const int RecordSlotBytes = 24;
-    public const int RunSlotBytes = 128;
     public const int QueueSlotBytes = 128;
-    public const int WorkerOverheadBytes = 4096;
     private static readonly UTF8Encoding Utf8 = new(false, true);
 
     public static long StringBytes(int length)

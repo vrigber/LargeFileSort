@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using LargeFileSort.Sorter.Abstractions;
 using LargeFileSort.Sorter.Chunks;
 using LargeFileSort.Sorter.Merging;
 using LargeFileSort.Sorter.Models;
@@ -14,10 +13,8 @@ using Microsoft.Extensions.Logging;
 namespace LargeFileSort.Sorter.Application;
 
 internal sealed class SortApplication(
-    ILineReader reader,
     ChunkPipeline pipeline,
     MergeCoordinator merger,
-    RunStore store,
     ResultPublisher publisher,
     SortResult statistics,
     ILogger<SortApplication> logger)
@@ -28,7 +25,6 @@ internal sealed class SortApplication(
         cancellationToken.ThrowIfCancellationRequested();
         logger.LogInformation("Reading and sorting chunks.");
         ChunkPipelineResult chunks = await pipeline.RunAsync(cancellationToken);
-        await reader.DisposeAsync();
         if (!chunks.OutputCompleted)
         {
             logger.LogInformation("Merging sorted runs.");
@@ -41,13 +37,10 @@ internal sealed class SortApplication(
         statistics.WrittenLineCount = counts.RecordCount;
         statistics.WrittenByteCount = counts.ByteCount;
 
-        logger.LogInformation("Removing temporary runs.");
-        await store.DisposeAsync();
         logger.LogInformation("Publishing result.");
         cancellationToken.ThrowIfCancellationRequested();
         Stopwatch publication = Stopwatch.StartNew();
         publisher.Publish();
-        await publisher.DisposeAsync();
         publication.Stop();
         statistics.PublicationTime = publication.Elapsed;
         logger.LogDebug("Result published.");
