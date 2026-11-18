@@ -7,12 +7,10 @@ namespace LargeFileSort.Sorter.Storage;
 
 internal sealed class ResultPublisher(
     string outputPath,
-    DiskBudget budget,
     int bufferCharacters,
     Action<string> deleteFile = null) : IAsyncDisposable
 {
     private readonly string _targetPath = ValidateTarget(outputPath, bufferCharacters);
-    private readonly StorageAccount _account = new(budget);
     private readonly Action<string> _deleteFile = deleteFile ?? File.Delete;
     private Utf8OutputWriter _writer;
     private string _temporaryPath;
@@ -21,6 +19,13 @@ internal sealed class ResultPublisher(
     private bool _disposed;
 
     public string TemporaryPath => _temporaryPath;
+
+    public (long RecordCount, long ByteCount) GetCompletedCounts()
+    {
+        if (_writer is null || !_writer.IsCompleted)
+            throw new InvalidOperationException("The result output has not been successfully completed.");
+        return (_writer.RecordCount, new FileInfo(_temporaryPath).Length);
+    }
 
     public IOutputWriter CreateWriter()
     {
@@ -37,7 +42,7 @@ internal sealed class ResultPublisher(
         });
         _temporaryPath = path;
         _created = true;
-        try { return _writer = new(stream, _account, bufferCharacters); }
+        try { return _writer = new(stream, bufferCharacters); }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             try { stream.Dispose(); }
@@ -55,7 +60,6 @@ internal sealed class ResultPublisher(
         if (_published) return;
         if (_writer is null || !_writer.IsCompleted)
             throw new InvalidOperationException("Only a successfully completed and closed output can be published.");
-        budget.CaptureActualPeak();
         File.Move(_temporaryPath, _targetPath, overwrite: false);
         _published = true;
     }
@@ -74,9 +78,7 @@ internal sealed class ResultPublisher(
         {
             try
             {
-                budget.CaptureActualPeak();
                 _deleteFile(_temporaryPath);
-                _account.ReleaseDeletedOwner();
                 _created = false;
             }
             catch (Exception cleanup) when (cleanup is not OutOfMemoryException)

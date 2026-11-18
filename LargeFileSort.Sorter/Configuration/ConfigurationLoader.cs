@@ -16,7 +16,6 @@ internal static class ConfigurationLoader
         ReadMemoryBudget(configuration),
         ReadInt32(configuration, nameof(SorterConfiguration.MaxParallelism), 1),
         ReadInt32(configuration, nameof(SorterConfiguration.MaxMergeSources), 2),
-        ReadInt32(configuration, nameof(SorterConfiguration.ExtraDiskSpace), 1, 10),
         ReadInt32(configuration, nameof(SorterConfiguration.ReaderBufferBytes), 1),
         ReadInt32(configuration, nameof(SorterConfiguration.WriterBufferCharacters), 1));
 
@@ -32,12 +31,12 @@ internal static class ConfigurationLoader
         return value;
     }
 
-    private static int ReadInt32(IConfiguration configuration, string name, int minimum, int maximum = int.MaxValue)
+    private static int ReadInt32(IConfiguration configuration, string name, int minimum)
     {
         if (!int.TryParse(configuration[name], NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
-            || value < minimum || value > maximum)
+            || value < minimum)
         {
-            throw new ArgumentException($"appsettings.json: {name} must be an integer in [{minimum}, {maximum}].");
+            throw new ArgumentException($"appsettings.json: {name} must be an integer in [{minimum}, {int.MaxValue}].");
         }
 
         return value;

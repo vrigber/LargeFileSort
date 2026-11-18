@@ -13,14 +13,10 @@ namespace LargeFileSort.Sorter.Chunks;
 internal sealed class ChunkBuilder(
     ILineReader reader,
     string source,
-    SortStatistics statistics,
+    SortResult statistics,
     ILogger<ChunkBuilder> logger)
 {
-    private readonly ILineReader _reader = reader ?? throw new ArgumentNullException(nameof(reader));
-    private readonly string _source = !string.IsNullOrWhiteSpace(source) ? source : throw new ArgumentException("Source must not be empty.", nameof(source));
-    private readonly SortStatistics _statistics = statistics ?? throw new ArgumentNullException(nameof(statistics));
-    private readonly ILogger<ChunkBuilder> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    private PendingRecord? _pending;
+    private (SortRecord Record, long LineNumber)? _pending;
     private bool _endOfInput;
     private bool _failed;
 
@@ -30,7 +26,7 @@ internal sealed class ChunkBuilder(
         _failed = true;
     }
 
-    public async ValueTask<ChunkReadResult> FillAsync(SortChunk chunk, CancellationToken cancellationToken)
+    public async ValueTask<bool> FillAsync(SortChunk chunk, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(chunk);
         if (_failed || chunk.Count != 0)
@@ -44,29 +40,28 @@ internal sealed class ChunkBuilder(
             while (_pending.HasValue || !_endOfInput)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                PendingRecord current;
+                (SortRecord Record, long LineNumber) current;
                 if (_pending.HasValue)
                 {
                     current = _pending.Value;
                 }
                 else
                 {
-                    string line = await _reader.ReadLineAsync(cancellationToken);
+                    string line = await reader.ReadLineAsync(cancellationToken);
                     if (line is null)
                     {
                         _endOfInput = true;
                         break;
                     }
 
-                    _statistics.ReadLineCount = checked(_statistics.ReadLineCount + 1);
                     if (string.IsNullOrWhiteSpace(line))
                     {
-                        _statistics.SkippedLineCount = checked(_statistics.SkippedLineCount + 1);
-                        _logger.LogWarning("Source {Source}, line {LineNumber}: skipping an empty or whitespace-only line.", _source, _reader.LineNumber);
+                        statistics.SkippedLineCount = checked(statistics.SkippedLineCount + 1);
+                        logger.LogWarning("Source {Source}, line {LineNumber}: skipping an empty or whitespace-only line.", source, reader.LineNumber);
                         continue;
                     }
 
-                    current = new(RecordParser.Parse(line, _source, _reader.LineNumber), _reader.LineNumber);
+                    current = (RecordParser.Parse(line, source, reader.LineNumber), reader.LineNumber);
                 }
 
                 if (!chunk.TryAdd(current.Record))
@@ -74,7 +69,7 @@ internal sealed class ChunkBuilder(
                     long required = MemoryEstimator.StringBytes(current.Record.Line.Length) + MemoryEstimator.RecordArrayBytes(1);
                     if (required > chunk.BudgetBytes)
                     {
-                        throw new InvalidDataException($"Source '{_source}', line {current.LineNumber}: the record requires at least {required} estimated bytes, exceeding the empty chunk budget of {chunk.BudgetBytes} bytes.");
+                        throw new InvalidDataException($"Source '{source}', line {current.LineNumber}: the record requires at least {required} estimated bytes, exceeding the empty chunk budget of {chunk.BudgetBytes} bytes.");
                     }
 
                     _pending = current;
@@ -86,10 +81,10 @@ internal sealed class ChunkBuilder(
 
             if (chunk.Count > 0)
             {
-                _statistics.ChunkCount = checked(_statistics.ChunkCount + 1);
+                statistics.ChunkCount = checked(statistics.ChunkCount + 1);
             }
 
-            return new(_endOfInput, _pending.HasValue);
+            return _endOfInput;
         }
         catch
         {
@@ -97,5 +92,6 @@ internal sealed class ChunkBuilder(
             _pending = null;
             throw;
         }
+        finally { statistics.ReadLineCount = reader.LineNumber; }
     }
 }

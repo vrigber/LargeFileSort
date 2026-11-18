@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using LargeFileSort.Sorter.Abstractions;
 using LargeFileSort.Sorter.Models;
@@ -11,57 +11,34 @@ namespace LargeFileSort.Sorter.Storage;
 internal sealed class RunStore(
     string tempDirectory,
     SortPlan plan,
-    DiskBudget budget,
     Action<string> deleteFile = null) : IAsyncDisposable
 {
-    private readonly object _gate = new();
-    private readonly HashSet<long> _readers = [];
-    private readonly SortPlan _plan = ValidatePlan(plan, budget);
-    private readonly DiskBudget _budget = budget;
-    private readonly StorageAccount _account = new(budget);
+    private readonly SortPlan _plan = plan;
     private readonly Action<string> _deleteFile = deleteFile ?? File.Delete;
     private readonly string _directory = CreateDirectory(tempDirectory);
     private long _lastRunId;
-    private int _writers;
     private bool _closed;
     private bool _cleaned;
 
     public string DirectoryPath => _directory;
 
-    public void CaptureActualPeak() => _budget.CaptureActualPeak();
-
-    public SegmentedRunWriter CreateWriter(long segmentTargetBytes)
+    public (SortedRun Run, Utf8OutputWriter Writer) CreateWriter(int maxLineCharacters)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(segmentTargetBytes);
-        lock (_gate)
-        {
-            ObjectDisposedException.ThrowIf(_closed, this);
-            if (_writers >= _plan.WorkerCount) throw new InvalidOperationException("The planned number of run writers has been reached.");
-            long id = checked(_lastRunId + 1);
-            SegmentedRunWriter writer = new(this, id, segmentTargetBytes);
-            _lastRunId = id;
-            _writers++;
-            return writer;
-        }
+        ObjectDisposedException.ThrowIf(_closed, this);
+        long id = Interlocked.Increment(ref _lastRunId);
+        return (new(id, maxLineCharacters), OpenWriter(id));
     }
 
     public ILineReader OpenReader(SortedRun run)
     {
         ArgumentNullException.ThrowIfNull(run);
-        lock (_gate)
-        {
-            ObjectDisposedException.ThrowIf(_closed, this);
-            if (run.Id < 1 || run.Id > _lastRunId || run.SegmentCount < 0 || run.RecordCount < 0 || run.ByteCount < 0)
-                throw new ArgumentException("Run descriptor does not belong to this store or is invalid.", nameof(run));
-            if (_readers.Count >= _plan.MaxMergeSources || !_readers.Add(run.Id))
-                throw new InvalidOperationException("The run is already open or the planned reader limit has been reached.");
-            return new SortedRunReader(this, run);
-        }
+        ObjectDisposedException.ThrowIf(_closed, this);
+        return new SortedRunReader(this, run.Id, OpenRunReader(run.Id));
     }
 
-    internal Utf8OutputWriter OpenSegmentWriter(long runId, long index)
+    private Utf8OutputWriter OpenWriter(long runId)
     {
-        FileStream stream = new(SegmentPath(runId, index), new FileStreamOptions
+        FileStream stream = new(RunPath(runId), new FileStreamOptions
         {
             Mode = FileMode.CreateNew,
             Access = FileAccess.Write,
@@ -69,7 +46,7 @@ internal sealed class RunStore(
             BufferSize = 1,
             Options = FileOptions.Asynchronous | FileOptions.SequentialScan
         });
-        try { return new(stream, _account, _plan.WriterBufferCharacters); }
+        try { return new(stream, _plan.WriterBufferCharacters); }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             try { stream.Dispose(); }
@@ -81,9 +58,9 @@ internal sealed class RunStore(
         }
     }
 
-    internal (RunSegment Segment, Utf8LineReader Reader) OpenSegmentReader(long runId, long index)
+    private Utf8LineReader OpenRunReader(long runId)
     {
-        string path = SegmentPath(runId, index);
+        string path = RunPath(runId);
         FileStream stream = new(path, new FileStreamOptions
         {
             Mode = FileMode.Open,
@@ -92,7 +69,7 @@ internal sealed class RunStore(
             BufferSize = 1,
             Options = FileOptions.Asynchronous | FileOptions.SequentialScan
         });
-        try { return (new(runId, index, stream.Length), new(stream, path, _plan.ReaderBufferBytes, allowUtf8Bom: false)); }
+        try { return new(stream, path, _plan.ReaderBufferBytes, allowUtf8Bom: false); }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             try { stream.Dispose(); }
@@ -104,27 +81,12 @@ internal sealed class RunStore(
         }
     }
 
-    internal void DeleteSegment(RunSegment segment)
-    {
-        _budget.CaptureActualPeak();
-        _deleteFile(SegmentPath(segment.RunId, segment.Index));
-        _account.ReleaseDeletedFile(segment.ByteCount);
-    }
-
-    internal void ReleaseWriter() { lock (_gate) _writers--; }
-    internal void ReleaseReader(long id) { lock (_gate) _readers.Remove(id); }
+    internal void DeleteRun(long runId) => _deleteFile(RunPath(runId));
 
     public ValueTask DisposeAsync()
     {
-        lock (_gate)
-        {
-            if (_cleaned) return default;
-            if (_writers != 0 || _readers.Count != 0)
-                throw new InvalidOperationException("Close run readers and writers before disposing their store.");
-            _closed = true;
-        }
-
-        _budget.CaptureActualPeak();
+        if (_cleaned) return default;
+        _closed = true;
         Exception firstFailure = null;
         long failureCount = 0;
         foreach (string file in Directory.EnumerateFiles(_directory))
@@ -139,22 +101,12 @@ internal sealed class RunStore(
         if (firstFailure is not null)
             throw new AggregateException($"Temporary cleanup failed for {failureCount} files; the first failure is attached.", firstFailure);
         Directory.Delete(_directory);
-        _account.ReleaseDeletedOwner();
         _cleaned = true;
         return default;
     }
 
-    private string SegmentPath(long runId, long index) =>
-        Path.Combine(_directory, FormattableString.Invariant($"run-{runId}-{index}.tmp"));
-
-    private static SortPlan ValidatePlan(SortPlan plan, DiskBudget budget)
-    {
-        ArgumentNullException.ThrowIfNull(plan);
-        ArgumentNullException.ThrowIfNull(budget);
-        if (plan.DiskBudgetBytes != budget.LimitBytes || plan.WorkerCount < 1 || plan.MaxMergeSources < 2)
-            throw new ArgumentException("Storage plan and disk budget are inconsistent.", nameof(plan));
-        return plan;
-    }
+    private string RunPath(long runId) =>
+        Path.Combine(_directory, FormattableString.Invariant($"run-{runId}.tmp"));
 
     private static string CreateDirectory(string parent)
     {

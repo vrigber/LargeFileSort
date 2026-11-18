@@ -5,16 +5,13 @@ namespace LargeFileSort.Sorter.Planning;
 
 internal static class SortPlanner
 {
-    public static SortPlan Create(SorterConfiguration settings, long inputBytes, int processorCount)
+    public static SortPlan Create(SorterConfiguration settings, int processorCount)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentOutOfRangeException.ThrowIfNegative(inputBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(processorCount);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.MemoryBudgetBytes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(settings.MaxParallelism);
         ArgumentOutOfRangeException.ThrowIfLessThan(settings.MaxMergeSources, 2);
-        ArgumentOutOfRangeException.ThrowIfLessThan(settings.ExtraDiskSpace, 1);
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(settings.ExtraDiskSpace, 10);
 
         long readerBytes;
         long writerBytes;
@@ -63,21 +60,10 @@ internal static class SortPlanner
             / (readerBytes + minimumHead + MemoryEstimator.QueueSlotBytes);
         int mergeSources = (int)Math.Min(Math.Min(sourceLimit, settings.MaxMergeSources), Array.MaxLength);
 
-        long diskBytes;
-        try
-        {
-            diskBytes = checked(inputBytes + inputBytes / 10 * settings.ExtraDiskSpace
-                + inputBytes % 10 * settings.ExtraDiskSpace / 10);
-        }
-        catch (OverflowException exception)
-        {
-            throw new ArgumentException("The input size and disk allowance exceed the supported Int64 file budget.", nameof(inputBytes), exception);
-        }
-
-        long segmentBytes = Math.Max(0, (diskBytes - inputBytes - 1) / (mergeSources + 1L));
-        return new(inputBytes, memory, workers, workers + 1, chunkBytes,
-            readerBytes, writerBytes, 4 * chunkBytes, catalogBytes, maxRuns, controlBytes,
-            mergeBytes, mergeSources, diskBytes, segmentBytes,
+        long chunkReserve = readerBytes + workers * writerBytes + 4 * chunkBytes + catalogBytes + controlBytes;
+        return new(workers, chunkBytes,
+            readerBytes, writerBytes, chunkReserve, catalogBytes + controlBytes, maxRuns,
+            mergeBytes, mergeSources,
             settings.ReaderBufferBytes, settings.WriterBufferCharacters);
     }
 }
