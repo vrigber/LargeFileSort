@@ -1,6 +1,7 @@
 using System;
 using System.CommandLine;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using LargeFileSort.Sorter.Models;
 
@@ -8,7 +9,7 @@ namespace LargeFileSort.Sorter.Configuration;
 
 internal static class CommandLineParser
 {
-    public static RootCommand CreateCommand(Func<CommandLineOptions, Task<int>> action)
+    public static RootCommand CreateCommand(Func<CommandLineOptions, CancellationToken, Task<int>> action)
     {
         Option<string> input = new("--input")
         {
@@ -30,14 +31,14 @@ internal static class CommandLineParser
         {
             Options = { input, output, tempDirectory }
         };
-        command.SetAction(async result =>
+        command.SetAction(async (result, cancellationToken) =>
         {
             CommandLineOptions options = new(
                 result.GetRequiredValue(input),
                 result.GetRequiredValue(output),
                 result.GetRequiredValue(tempDirectory));
 
-            return await action(ValidatePaths(options));
+            return await action(ValidatePaths(options), cancellationToken);
         });
 
         return command;

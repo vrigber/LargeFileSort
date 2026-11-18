@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using LargeFileSort.Sorter.Planning;
 
 namespace LargeFileSort.Sorter.Models;
@@ -18,7 +20,7 @@ internal sealed class SortChunk(long budgetBytes)
 
     public long EstimatedMemoryBytes { get; private set; }
 
-    public long PeakEstimatedMemoryBytes { get; private set; }
+    public int MaxLineCharacters { get; private set; }
 
     public bool TryAdd(SortRecord record)
     {
@@ -40,19 +42,24 @@ internal sealed class SortChunk(long budgetBytes)
             int desired = Capacity == 0 ? 4 : (int)Math.Min(2L * Capacity, Array.MaxLength);
             int capacity = Math.Min(desired, maximum);
             long arrayBytes = MemoryEstimator.RecordArrayBytes(capacity);
-            long peakBytes = EstimatedMemoryBytes + stringBytes + arrayBytes;
             SortRecord[] expanded = new SortRecord[capacity];
             Array.Copy(_records, expanded, Count);
             _records = expanded;
             EstimatedMemoryBytes = _stringBytes + arrayBytes;
-            PeakEstimatedMemoryBytes = Math.Max(PeakEstimatedMemoryBytes, peakBytes);
         }
 
         _records[Count++] = record;
         _stringBytes += stringBytes;
         EstimatedMemoryBytes += stringBytes;
-        PeakEstimatedMemoryBytes = Math.Max(PeakEstimatedMemoryBytes, EstimatedMemoryBytes);
+        MaxLineCharacters = Math.Max(MaxLineCharacters, record.Line.Length);
         return true;
+    }
+
+    public void Sort(IComparer<SortRecord> comparer, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Array.Sort(_records, 0, Count, comparer);
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     public void Release()
@@ -61,7 +68,7 @@ internal sealed class SortChunk(long budgetBytes)
         Count = 0;
         _stringBytes = 0;
         EstimatedMemoryBytes = 0;
-        PeakEstimatedMemoryBytes = 0;
+        MaxLineCharacters = 0;
     }
 
     private static long ValidateBudget(long bytes)
